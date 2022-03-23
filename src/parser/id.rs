@@ -1,14 +1,16 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{char, digit1, satisfy, space1};
-use nom::combinator::recognize;
+use nom::combinator::{map_res, recognize, value};
+use nom::error::ParseError;
 use nom::multi::many_m_n;
-use nom::sequence::tuple;
+use nom::sequence::{terminated, tuple};
 use nom::IResult;
-use std::str::FromStr;
+use nom::{AsChar, InputIter, InputLength, Slice};
+use std::ops::RangeFrom;
 use strum_macros::EnumString;
 
-#[derive(PartialEq, Debug, EnumString)]
+#[derive(PartialEq, Debug, EnumString, Clone)]
 pub enum EntryStatus {
     Reviewed,
     Unreviewed,
@@ -21,30 +23,39 @@ pub struct IdLine<'a> {
     length: u64,
 }
 
+fn many_m_n_alphanumeric<I, E>(m: usize, n: usize) -> impl FnMut(I) -> IResult<I, Vec<char>, E>
+where
+    I: Clone + InputLength + InputIter + Slice<RangeFrom<usize>>,
+    E: ParseError<I>,
+    <I as InputIter>::Item: AsChar,
+{
+    many_m_n(
+        m,
+        n,
+        alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
+    )
+}
+
 fn entry_name(i: &str) -> IResult<&str, &str> {
     recognize(tuple((
-        many_m_n(
-            1,
-            10,
-            alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-        ),
+        many_m_n_alphanumeric(1, 10),
         char('_'),
-        many_m_n(
-            1,
-            5,
-            alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-        ),
+        many_m_n_alphanumeric(1, 5),
     )))(i)
 }
 
 fn status(i: &str) -> IResult<&str, EntryStatus> {
-    let (l, r) = alt((tag("Unreviewed"), tag("Reviewed")))(i)?;
-    Ok((l, EntryStatus::from_str(r).unwrap()))
+    alt((
+        value(EntryStatus::Unreviewed, tag("Unreviewed")),
+        value(EntryStatus::Reviewed, tag("Reviewed")),
+    ))(i)
 }
 
 fn length(i: &str) -> IResult<&str, u64> {
-    let (l, (d, _, _)) = tuple((digit1, space1, tag("AA")))(i)?;
-    Ok((l, u64::from_str(d).unwrap()))
+    terminated(
+        map_res(digit1, str::parse::<u64>),
+        tuple((space1, tag("AA"))),
+    )(i)
 }
 
 pub fn id_line(i: &str) -> IResult<&str, IdLine> {
