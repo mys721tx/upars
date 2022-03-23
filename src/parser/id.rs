@@ -83,6 +83,7 @@ pub fn id_line(i: &str) -> IResult<&str, IdLine> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn entry_status_from_str_test() {
