@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{newline, satisfy, space0, space1};
-use nom::combinator::{opt, recognize};
+use nom::combinator::recognize;
 use nom::multi::{many1, many_m_n};
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
@@ -11,16 +11,16 @@ fn accession(i: &str) -> IResult<&str, &str> {
         recognize(tuple((
             satisfy(|x| matches!(x, 'A'..='N' | 'R'..='Z')),
             satisfy(char::is_numeric),
-            satisfy(char::is_uppercase),
-            alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-            alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-            satisfy(char::is_numeric),
-            opt(tuple((
-                satisfy(char::is_uppercase),
-                alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-                alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
-                satisfy(char::is_numeric),
-            ))),
+            many_m_n(
+                1,
+                2,
+                tuple((
+                    satisfy(char::is_uppercase),
+                    alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
+                    alt((satisfy(char::is_numeric), satisfy(char::is_uppercase))),
+                    satisfy(char::is_numeric),
+                )),
+            ),
         ))),
         recognize(tuple((
             satisfy(|x| matches!(x, 'O'..='Q')),
@@ -46,6 +46,7 @@ pub fn ac_line(i: &str) -> IResult<&str, Vec<&str>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::combinator::all_consuming;
 
     #[test]
     fn accession_test() {
@@ -57,9 +58,8 @@ mod tests {
         assert!(accession("10AAA0").is_err());
         assert!(accession("AAAAA0").is_err());
         assert!(accession("A0AAAA").is_err());
-        // Leaving the invalid suffix processing to ac_line
-        // assert!(accession("A0AAA000000").is_err());
-        // assert!(accession("A0AAA0A000A").is_err());
+        assert!(all_consuming(accession)("A0AAA000000").is_err());
+        assert!(all_consuming(accession)("A0AAA0A000A").is_err());
         assert!(accession("O0AAAA").is_err());
     }
 
