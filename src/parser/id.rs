@@ -1,10 +1,10 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{char, digit1, satisfy, space1};
+use nom::character::complete::{char, digit1, newline, satisfy, space1};
 use nom::combinator::{map_res, recognize, value};
 use nom::error::ParseError;
 use nom::multi::many_m_n;
-use nom::sequence::{terminated, tuple};
+use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 use nom::{AsChar, InputIter, InputLength, Slice};
 use std::ops::RangeFrom;
@@ -59,17 +59,16 @@ fn length(i: &str) -> IResult<&str, u64> {
 }
 
 pub fn id_line(i: &str) -> IResult<&str, IdLine> {
-    let (l, (_, _, name, _, status, _, _, length, _)) = tuple((
-        tag("ID"),
-        space1,
-        entry_name,
-        space1,
-        status,
-        char(';'),
-        space1,
-        length,
-        char('.'),
-    ))(i)?;
+    let (l, (name, status, length)) = delimited(
+        tuple((tag("ID"), space1)),
+        tuple((
+            terminated(entry_name, space1),
+            terminated(status, char(';')),
+            delimited(space1, length, char('.')),
+        )),
+        newline,
+    )(i)?;
+
     Ok((
         l,
         IdLine {
@@ -120,7 +119,10 @@ mod tests {
     #[test]
     fn id_line_test() {
         assert_eq!(
-            id_line("ID   CYC_BOVIN               Reviewed;         104 AA."),
+            id_line(
+                "ID   CYC_BOVIN               Reviewed;         104 AA.
+"
+            ),
             Ok((
                 "",
                 IdLine {
@@ -131,7 +133,10 @@ mod tests {
             ))
         );
         assert_eq!(
-            id_line("ID   GIA2_GIALA              Reviewed;         296 AA."),
+            id_line(
+                "ID   GIA2_GIALA              Reviewed;         296 AA.
+"
+            ),
             Ok((
                 "",
                 IdLine {
@@ -142,7 +147,10 @@ mod tests {
             ))
         );
         assert_eq!(
-            id_line("ID   Q5JU06_HUMAN            Unreviewed;       268 AA."),
+            id_line(
+                "ID   Q5JU06_HUMAN            Unreviewed;       268 AA.
+"
+            ),
             Ok((
                 "",
                 IdLine {
