@@ -92,5 +92,17 @@ AC   Q99605;
                 )
             ))
         );
+        assert!(
+            ac_line(
+                "AC   A0AAA000000;
+"
+            ).is_err()
+        );
+        assert!(
+            ac_line(
+                "AC   A0AAA0A000A;
+"
+            ).is_err()
+        );
     }
 }
